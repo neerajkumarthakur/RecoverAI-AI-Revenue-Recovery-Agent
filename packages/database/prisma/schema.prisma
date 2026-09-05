@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Merchant {
+  id                String   @id @default(cuid())
+  name              String
+  email             String   @unique
+  razorpayAccountId String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  customers      Customer[]
+  orders         Order[]
+  payments       Payment[]
+  recoveryCases  RecoveryCase[]
+  auditLogs      AuditLog[]
+  webhookEvents  WebhookEvent[]
+
+  @@map("merchants")
+}
+
+model Customer {
+  id                 String   @id @default(cuid())
+  merchantId         String
+  name               String
+  email              String
+  phone              String?
+  externalCustomerId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  merchant      Merchant       @relation(fields: [merchantId], references: [id])
+  payments      Payment[]
+  recoveryCases RecoveryCase[]
+
+  @@map("customers")
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  merchantId      String
+  razorpayOrderId String   @unique
+  customerId      String?
+  amount          Int
+  currency        String   @default("INR")
+  status          String
+  createdAt       DateTime @default(now())
+
+  merchant Merchant  @relation(fields: [merchantId], references: [id])
+  payments Payment[]
+
+  @@map("orders")
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  merchantId        String
+  customerId        String
+  orderId           String?
+  razorpayPaymentId String?       @unique
+  razorpayOrderId   String?
+  amount            Int
+  currency          String        @default("INR")
+  method            String        @default("other")
+  status            String        @default("created")
+  errorCode         String?
+  errorDescription  String?
+  failureReason     String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  merchant     Merchant      @relation(fields: [merchantId], references: [id])
+  customer     Customer      @relation(fields: [customerId], references: [id])
+  order        Order?        @relation(fields: [orderId], references: [id])
+  recoveryCase RecoveryCase?
+
+  @@map("payments")
+}
+
+model RecoveryCase {
+  id                  String   @id @default(cuid())
+  merchantId          String
+  customerId          String
+  paymentId           String   @unique
+  amountAtRisk        Int
+  status              String   @default("OPEN")
+  failureCategory     String?
+  recoverabilityScore Int?
+  aiReason            String?
+  aiConfidence        Float?
+  recommendedAction   String?
+  attemptCount        Int                @default(0)
+  maxAttempts         Int                @default(2)
+  deadline            DateTime
+  recoveredAt         DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  merchant        Merchant         @relation(fields: [merchantId], references: [id])
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  payment         Payment          @relation(fields: [paymentId], references: [id])
+  recoveryActions RecoveryAction[]
+  paymentLinks    PaymentLink[]
+  auditLogs       AuditLog[]
+
+  @@map("recovery_cases")
+}
+
+model RecoveryAction {
+  id             String   @id @default(cuid())
+  recoveryCaseId String
+  actionType     String
+  status         String   @default("PROPOSED")
+  reason         String?
+  riskScore      Int?
+  executedAt     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
+
+  @@map("recovery_actions")
+}
+
+model PaymentLink {
+  id                    String    @id @default(cuid())
+  recoveryCaseId        String
+  razorpayPaymentLinkId String    @unique
+  shortUrl              String
+  amount                Int
+  status                String    @default("created")
+  expiresAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
+
+  @@map("payment_links")
+}
+
+model WebhookEvent {
+  id              String    @id @default(cuid())
+  merchantId      String?
+  razorpayEventId String    @unique
+  eventType       String
+  payload         String
+  processed       Boolean   @default(false)
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  merchant Merchant? @relation(fields: [merchantId], references: [id])
+
+  @@map("webhook_events")
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  merchantId     String
+  recoveryCaseId String?
+  actorType      String
+  action         String
+  reason         String?
+  metadata       String?
+  createdAt      DateTime  @default(now())
+
+  merchant     Merchant      @relation(fields: [merchantId], references: [id])
+  recoveryCase RecoveryCase? @relation(fields: [recoveryCaseId], references: [id])
+
+  @@map("audit_logs")
+}

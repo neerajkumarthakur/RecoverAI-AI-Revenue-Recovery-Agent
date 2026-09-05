@@ -1,0 +1,19 @@
+{
+  "name": "recoverai",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=apps/api\" \"npm run dev --workspace=apps/web\"",
+    "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web",
+    "db:migrate": "npm run migrate --workspace=packages/database",
+    "db:generate": "npm run generate --workspace=packages/database",
+    "db:seed": "npx ts-node --project scripts/tsconfig.json scripts/seed.ts && npx ts-node --project scripts/tsconfig.json scripts/generate-demo-data.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "concurrently": "^8.2.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
